@@ -5,9 +5,12 @@ from robot import Robot
 
 def ray_collision(x, y, z):
   rad = (np.pi / 180) * z if z != 0 else 0
-  xDist = np.abs(np.fmin(np.abs(400 - x), np.abs(-400 - x))) / (np.abs(np.sin(rad)) if np.abs(np.sin(rad)) != 0 else 0.00000000001)
-  yDist = np.abs(np.fmin(np.abs(400 - y), np.abs(-400 - y))) / (np.abs(np.cos(rad)) if np.abs(np.cos(rad)) != 0 else 0.00000000001)
-  return np.fmin(xDist, yDist)
+  rad = np.atan(np.sin(rad) / np.cos(rad))
+  xDist = np.abs(400 - x) if rad > 0 else np.abs(-400 - x)
+  xDist = xDist / (np.abs(np.sin(rad)) if np.abs(np.sin(rad)) != 0 else 0.00000000001)
+  yDist = np.abs(400 - y) if (rad > np.pi / 2 or rad < np.pi / 2) else np.abs(-400 - y)
+  yDist = yDist / (np.abs(np.cos(rad)) if np.abs(np.cos(rad)) != 0 else 0.00000000001)
+  return np.fmin(xDist, yDist) + np.random.uniform(-1, 1)
 
 x_range = (-100, 100)
 y_range = (-100, 100)
@@ -90,8 +93,8 @@ while running:
     rayleft = ray_collision(rob.x, rob.y, rob.z + 270)
 
 
-    particles[:, 0] += rob.deltaX() + np.random.uniform(-1, 1)
-    particles[:, 1] += rob.deltaY() + np.random.uniform(-1, 1)
+    particles[:, 0] += rob.deltaX() + np.random.uniform(-0.5, 0.5)
+    particles[:, 1] += rob.deltaY() + np.random.uniform(-0.5, 0.5)
 
     for x, y in particles:
         pygame.draw.circle(screen, (255, 255, 255), (screenCordX(x), screenCordY(y)), 2)  # White dot
