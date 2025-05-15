@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "mcl simulator"
+version = "0.1.0"
+description = ""
+authors = ["SecretAgent <iyengar.dhruv@outlook.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pygame = "^2.6.1"
+numpy = "^2.2.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
