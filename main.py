@@ -3,17 +3,36 @@ import sys
 import numpy as np
 from robot import Robot
 
-def ray_collision(x, y, z):
-  rad = (np.pi / 180) * z if z != 0 else 0
-  rad = np.atan(np.sin(rad) / np.cos(rad))
-  xDist = np.abs(400 - x) if rad > 0 else np.abs(-400 - x)
-  xDist = xDist / (np.abs(np.sin(rad)) if np.abs(np.sin(rad)) != 0 else 0.00000000001)
-  yDist = np.abs(400 - y) if (rad > np.pi / 2 or rad < np.pi / 2) else np.abs(-400 - y)
-  yDist = yDist / (np.abs(np.cos(rad)) if np.abs(np.cos(rad)) != 0 else 0.00000000001)
-  return np.fmin(xDist, yDist) + np.random.uniform(-1, 1)
+def ray_collision(x, y, heading, noise=False):
 
-x_range = (-100, 100)
-y_range = (-100, 100)
+    # Convert heading to radians
+    rad = np.deg2rad(heading)
+    # Define ray direction vector
+    dx = np.sin(rad)
+    dy = np.cos(rad)
+    # Avoid division by zero: set very small component to a very small number
+    if abs(dx) < 1e-10:
+        dx = 1e-10 if dx >= 0 else -1e-10
+    if abs(dy) < 1e-10:
+        dy = 1e-10 if dy >= 0 else -1e-10
+    # Compute distances to vertical walls x = +/-400
+    if dx > 0:
+        dist_x_pos = (400 - x) / dx
+    else:
+        dist_x_pos = (-400 - x) / dx
+    # Compute distances to horizontal walls y = +/-400
+    if dy > 0:
+        dist_y_pos = (400 - y) / dy
+    else:
+        dist_y_pos = (-400 - y) / dy
+
+    dist = min(dist_x_pos, dist_y_pos)
+    if noise:
+        dist += np.random.uniform(-1, 1)
+    return dist
+
+x_range = (-400, 400)
+y_range = (-400, 400)
 
 rob = Robot(0, 0, 0)
 
@@ -34,6 +53,8 @@ particles = np.column_stack((
 ))
 
 clock = pygame.time.Clock()  # For framerate and dt
+
+font = pygame.font.Font(None, 36)
 
 def screenCordX(coord):
     return int(coord + screen.get_width() / 2)
@@ -87,14 +108,19 @@ while running:
         rob.z += rotation_speed * dt
     ##DELTA CALC GOES HERE
 
-    rayfwd = ray_collision(rob.x, rob.y, rob.z)
-    rayright = ray_collision(rob.x, rob.y, rob.z + 90)
-    rayback = ray_collision(rob.x, rob.y, rob.z + 180)
-    rayleft = ray_collision(rob.x, rob.y, rob.z + 270)
+    rayfwd = ray_collision(rob.x, rob.y, rob.z, True)
+    rayright = ray_collision(rob.x, rob.y, rob.z + 90, True)
+    rayback = ray_collision(rob.x, rob.y, rob.z + 180, True)
+    rayleft = ray_collision(rob.x, rob.y, rob.z + 270, True)
 
 
-    particles[:, 0] += rob.deltaX() + np.random.uniform(-0.5, 0.5)
-    particles[:, 1] += rob.deltaY() + np.random.uniform(-0.5, 0.5)
+    for i in range(particles.shape[0]):
+        particles[i, 0] += rob.deltaX() + np.random.uniform(-1, 1)
+        particles[i, 1] += rob.deltaY() + np.random.uniform(-1, 1)
+
+        if np.fabs(particles[i, 0]) > 400 or np.fabs(particles[i, 0]) > 400:
+            particles[i, 0] = np.random.uniform(-400, 400)
+            particles[i, 1] = np.random.uniform(-400, 400)
 
     for x, y in particles:
         pygame.draw.circle(screen, (255, 255, 255), (screenCordX(x), screenCordY(y)), 2)  # White dot
@@ -102,7 +128,7 @@ while running:
     weights = np.empty(n_particles)
 
     for i, (x, y) in enumerate(particles):
-        angle = rob.z + np.random.uniform(-5, 5)
+        angle = rob.z + np.random.uniform(-2.5, 2.5)
         sigma = 10000
         weights[i] = np.exp(-0.5 * ((ray_collision(x, y, angle) - rayfwd) / sigma)**2) * np.exp(-0.5 * ((ray_collision(x, y, angle + 90) - rayright) / sigma)**2) * np.exp(-0.5 * ((ray_collision(x, y, angle + 180) - rayback) / sigma)**2) * np.exp(-0.5 * ((ray_collision(x, y, angle + 270) - rayleft) / sigma)**2)
 
@@ -134,13 +160,17 @@ while running:
     predictedX = xSum / n_particles
     predictedY = ySum / n_particles
 
-    particles = weighted
+    particles[:] = weighted[:]
 
     pygame.draw.circle(
         screen, BLUE,
         (screenCordX(predictedX), screenCordY(predictedY)),
         4
     )
+    
+    text_surface = font.render(f"FWD {round(rayfwd, -1)}, RIGHT, {round(rayright, -1)} X: {rob.x} Y: {rob.y} Z: {rob.z}", True, (255, 255, 255))
+    screen.blit(text_surface, (20, 20))
+
 
     rob.recordPrev()
 
